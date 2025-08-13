@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Simple Car Game — Single File</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#2b2b2b;--road:#3a3a3a;--line:#e9e9e9;--panel:#111}
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    background:var(--bg);
+    color:#fff;
+    display:flex;
+    gap:20px;
+    min-height:100vh;
+    align-items:flex-start;
+    justify-content:center;
+    padding:20px;
+  }
+
+  .wrapper{
+    display:flex;
+    gap:20px;
+    align-items:flex-start;
+    max-width:1100px;
+    width:100%;
+  }
+
+  .left {
+    background:linear-gradient(180deg,#111,#000);
+    padding:14px;
+    border-radius:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  canvas{
+    display:block;
+    background:linear-gradient(#2a2a2a,#212121);
+    border-radius:8px;
+    border:6px solid #000;
+    width:800px;
+    height:600px;
+  }
+
+  .controls {
+    margin-top:12px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .panel {
+    width:260px;
+    background:var(--panel);
+    padding:14px;
+    border-radius:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.6);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  label{font-size:14px;color:#ddd}
+  select, button {
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:0;
+    font-size:16px;
+    cursor:pointer;
+  }
+  button.primary{
+    background:#1db954;color:#fff;font-weight:600;
+  }
+  button.secondary{
+    background:#444;color:#fff;
+  }
+  .score{
+    font-size:22px;
+    text-align:center;
+    background:#0f0f0f;
+    padding:10px;border-radius:8px;
+  }
+  .hint{font-size:13px;color:#bbb}
+  .touch-controls{display:flex;gap:8px}
+  .touch-controls button{flex:1;padding:14px;font-size:18px}
+  footer{font-size:12px;color:#888;text-align:center;margin-top:8px}
+  @media(max-width:920px){
+    canvas{width:100%;height:auto}
+    .wrapper{flex-direction:column;align-items:center}
+  }
+  .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+</style>
+</head>
+<body>
+    <a href="index.html" class="back-button">← Back</a>
+<div class="wrapper">
+  <div class="left">
+    <canvas id="game" width="800" height="600"></canvas>
+    <div class="controls">
+      <button id="startBtn" class="primary">Start</button>
+      <button id="pauseBtn" class="secondary">Pause</button>
+      <button id="restartBtn" class="secondary">Restart</button>
+    </div>
+  </div>
+
+  <aside class="panel" aria-label="Game panel">
+    <div>
+      <label for="difficulty">Difficulty</label>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+
+    <div class="score" id="scoreBox">Score: 0</div>
+
+    <div>
+      <label>Controls</label>
+      <div class="hint">Use ← → or A / D to move. Tap the left/right buttons on touch.</div>
+      <div class="touch-controls" style="margin-top:8px">
+        <button id="touchLeft">◀</button>
+        <button id="touchRight">▶</button>
+      </div>
+    </div>
+
+    <div>
+      <label>Game Options</label>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="toggleMusic" class="secondary">Sound: Off</button>
+        <button id="toggleDebug" class="secondary">Debug: Off</button>
+      </div>
+    </div>
+
+    <footer>Simple Car Game — single file • made with canvas</footer>
+  </aside>
+</div>
+
+<script>
+/* -------------------------
+   Simple Car Game (Single File)
+   - keyboard + touch controls
+   - difficulty levels (easy/medium/hard)
+   - obstacles spawn, speed increases with score
+   - restart/pause/start
+   ------------------------- */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const scoreBox = document.getElementById('scoreBox');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const restartBtn = document.getElementById('restartBtn');
+const difficultySelect = document.getElementById('difficulty');
+const touchLeft = document.getElementById('touchLeft');
+const touchRight = document.getElementById('touchRight');
+const toggleMusic = document.getElementById('toggleMusic');
+const toggleDebug = document.getElementById('toggleDebug');
+
+let W = canvas.width, H = canvas.height;
+let animId = null;
+let gameRunning = false;
+let gamePaused = false;
+let debug = false;
+let soundOn = false;
+
+/* Game state */
+let player, obstacles, road, spawnTimer, score, speedMultiplier;
+
+/* Difficulty settings */
+const DIFFICULTY = {
+  easy:   { obstacleFreq: 1600, maxSpeed: 2.0, laneCount: 3 },
+  medium: { obstacleFreq: 1200, maxSpeed: 3.0, laneCount: 3 },
+  hard:   { obstacleFreq: 900,  maxSpeed: 4.2, laneCount: 4 }
+};
+
+/* Setup initial / reset */
+function resetGame() {
+  W = canvas.width; H = canvas.height;
+  player = {
+    w: 50, h: 90,
+    x: W/2 - 25,
+    y: H - 140,
+    speed: 8,
+    color: '#1e90ff',
+    lane: null
+  };
+  const diff = DIFFICULTY[difficultySelect.value];
+  road = {
+    laneCount: diff.laneCount,
+    laneWidth: Math.floor(W * 0.5 / diff.laneCount),
+    left: Math.floor((W - (Math.floor(W * 0.5))) / 2),
+    right: null
+  };
+  road.right = road.left + road.laneWidth * road.laneCount;
+  // place player centered in middle lane
+  const middleLane = Math.floor(diff.laneCount / 2);
+  player.x = road.left + middleLane * road.laneWidth + (road.laneWidth - player.w)/2;
+
+  obstacles = [];
+  spawnTimer = 0;
+  score = 0;
+  speedMultiplier = 1;
+  updateScoreUI();
+}
+
+/* Utility - random */
+function rnd(a,b){ return Math.random()*(b-a)+a; }
+
+/* Draw road, lanes, car, obstacles */
+function draw() {
+  // background
+  ctx.fillStyle = '#2b2b2b';
+  ctx.fillRect(0,0,W,H);
+
+  // road (centered)
+  ctx.fillStyle = '#333';
+  ctx.fillRect(road.left - 40, 0, (road.right - road.left) + 80, H);
+
+  // road side stripes
+  ctx.fillStyle = '#222';
+  ctx.fillRect(road.left - 40, 0, 10, H);
+  ctx.fillRect(road.right + 30, 0, 10, H);
+
+  // lane markers
+  ctx.strokeStyle = '#e9e9e9';
+  ctx.lineWidth = 6;
+  ctx.setLineDash([40,30]);
+  for(let i=1;i<road.laneCount;i++){
+    const x = road.left + i*road.laneWidth;
+    ctx.beginPath();
+    ctx.moveTo(x,0); ctx.lineTo(x,H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // obstacles
+  for(const o of obstacles){
+    ctx.fillStyle = o.color;
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+    if(debug){
+      ctx.strokeStyle='#ff0';
+      ctx.strokeRect(o.x,o.y,o.w,o.h);
+    }
+  }
+
+  // player car (simple rectangle with "window")
+  ctx.fillStyle = player.color;
+  roundRect(ctx, player.x, player.y, player.w, player.h, 8, true, false);
+  // window
+  ctx.fillStyle = '#aee';
+  roundRect(ctx, player.x + 8, player.y + 16, player.w - 16, player.h/3, 6, true, false);
+  if(debug){
+    ctx.strokeStyle='#f0f';
+    ctx.strokeRect(player.x,player.y,player.w,player.h);
+  }
+
+  // HUD
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px monospace';
+  ctx.fillText('Score: ' + score, 14, 28);
+
+  if(debug){
+    ctx.fillStyle='#fff';
+    ctx.font='12px monospace';
+    ctx.fillText('Obstacles: '+obstacles.length, 14, 48);
+  }
+}
+
+/* Rounded rect helper */
+function roundRect(ctx, x, y, w, h, r, fill, stroke){
+  if (typeof stroke === 'undefined') stroke = true;
+  if (typeof r === 'undefined') r = 5;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if(fill) ctx.fill();
+  if(stroke) ctx.stroke();
+}
+
+/* Spawn obstacles (cars / barriers) */
+function spawnObstacle() {
+  const diff = DIFFICULTY[difficultySelect.value];
+  const lane = Math.floor(rnd(0, diff.laneCount));
+  const w = road.laneWidth - 20;
+  const h = rnd(60, 120);
+  const x = road.left + lane * road.laneWidth + (road.laneWidth - w)/2;
+  const o = {
+    x: x,
+    y: -h - 20,
+    w: w,
+    h: h,
+    speed: rnd(2, diff.maxSpeed) * speedMultiplier + 1.2,
+    color: '#c0392b'
+  };
+  // small chance for wider obstacle
+  if(Math.random() < 0.08){
+    o.h = rnd(120,190);
+    o.color = '#8e44ad';
+  }
+  obstacles.push(o);
+}
+
+/* Update positions and logic */
+function update(dt) {
+  // spawn logic
+  spawnTimer += dt;
+  const diff = DIFFICULTY[difficultySelect.value];
+  const freq = diff.obstacleFreq / Math.max(0.6, 1 - Math.min(0.8, score/180)); // spawn faster as score grows
+  if (spawnTimer > freq) {
+    spawnTimer = 0;
+    spawnObstacle();
+  }
+
+  // move obstacles
+  for(let i = obstacles.length-1; i>=0; i--){
+    const o = obstacles[i];
+    o.y += o.speed;
+    // off screen -> remove and reward
+    if(o.y > H + 200){
+      obstacles.splice(i,1);
+      score++;
+      // slight speed increase per score milestone
+      if(score % 6 === 0) speedMultiplier += 0.06;
+      updateScoreUI();
+    } else {
+      // collision check with player
+      if(rectIntersect(player.x, player.y, player.w, player.h, o.x, o.y, o.w, o.h)){
+        gameOver();
+        return;
+      }
+    }
+  }
+}
+
+/* Rectangle intersection */
+function rectIntersect(ax,ay,aw,ah, bx,by,bw,bh){
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+/* Input handling */
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  // space to start
+  if(e.key === ' '){
+    if(!gameRunning) startGame();
+    else if(gamePaused) resumeGame();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+touchLeft.addEventListener('touchstart', (e)=>{ e.preventDefault(); touchMoveLeft = true; }, {passive:false});
+touchLeft.addEventListener('touchend', ()=>{ touchMoveLeft = false; });
+
+touchRight.addEventListener('touchstart', (e)=>{ e.preventDefault(); touchMoveRight = true; }, {passive:false});
+touchRight.addEventListener('touchend', ()=>{ touchMoveRight = false; });
+
+let touchMoveLeft=false, touchMoveRight=false;
+
+/* Game loop */
+let last = 0;
+function loop(ts){
+  if(!gameRunning || gamePaused){ last = 0; return; }
+  if(!last) last = ts;
+  const dt = ts - last;
+  last = ts;
+
+  // player control
+  const left = keys['arrowleft'] || keys['a'] || touchMoveLeft;
+  const right = keys['arrowright'] || keys['d'] || touchMoveRight;
+
+  if(left && !right){
+    player.x -= player.speed;
+  } else if(right && !left){
+    player.x += player.speed;
+  }
+
+  // clamp to road
+  player.x = Math.max(road.left + 6, Math.min(road.right - player.w - 6, player.x));
+
+  // update
+  update(dt);
+  // draw
+  draw();
+
+  animId = requestAnimationFrame(loop);
+}
+
+/* Start / pause / resume / restart */
+function startGame(){
+  if(gameRunning) return;
+  resetGame();
+  gameRunning = true;
+  gamePaused = false;
+  startBtn.textContent = 'Running';
+  pauseBtn.textContent = 'Pause';
+  last = 0;
+  animId = requestAnimationFrame(loop);
+}
+function pauseGame(){
+  if(!gameRunning) return;
+  gamePaused = true;
+  startBtn.textContent = 'Start';
+  pauseBtn.textContent = 'Resume';
+  if(animId) cancelAnimationFrame(animId);
+}
+function resumeGame(){
+  if(!gameRunning) return;
+  gamePaused = false;
+  pauseBtn.textContent = 'Pause';
+  last = 0;
+  animId = requestAnimationFrame(loop);
+}
+function restart(){
+  if(animId) cancelAnimationFrame(animId);
+  gameRunning = false;
+  gamePaused = false;
+  startBtn.textContent = 'Start';
+  pauseBtn.textContent = 'Pause';
+  resetGame();
+  draw();
+}
+
+/* Game over */
+function gameOver(){
+  gameRunning = false;
+  if(animId) cancelAnimationFrame(animId);
+  // show big text
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#ff4757';
+  ctx.font = '48px system-ui,Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('GAME OVER', W/2, H/2 - 20);
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px monospace';
+  ctx.fillText('Score: ' + score, W/2, H/2 + 18);
+  startBtn.textContent = 'Start';
+  pauseBtn.textContent = 'Pause';
+}
+
+/* Score UI update */
+function updateScoreUI(){
+  scoreBox.textContent = 'Score: ' + score;
+}
+
+/* Toggle debug / sound buttons */
+toggleDebug.addEventListener('click', ()=>{
+  debug = !debug;
+  toggleDebug.textContent = 'Debug: ' + (debug? 'On' : 'Off');
+  draw();
+});
+toggleMusic.addEventListener('click', ()=>{
+  soundOn = !soundOn;
+  toggleMusic.textContent = 'Sound: ' + (soundOn ? 'On' : 'Off');
+});
+
+/* Buttons */
+startBtn.addEventListener('click', ()=> {
+  if(!gameRunning) startGame();
+  else if(gamePaused) resumeGame();
+});
+pauseBtn.addEventListener('click', ()=> {
+  if(!gameRunning) return;
+  if(gamePaused) resumeGame(); else pauseGame();
+});
+restartBtn.addEventListener('click', restart);
+
+/* When difficulty changes, restart to apply */
+difficultySelect.addEventListener('change', ()=> {
+  restart();
+});
+
+/* initial draw */
+resetGame();
+draw();
+
+/* Keep responsiveness if canvas style scales on small screens */
+window.addEventListener('resize', () => {
+  // canvas actual drawing size remains the same (800x600), we just redraw
+  draw();
+});
+
+</script>
+</body>
+</html>

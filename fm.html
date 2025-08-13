@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flappy Bird</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: skyblue;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: #70c5ce;
+    }
+
+    #restartBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 30px;
+      font-size: 20px;
+      background: #fff;
+      color: #333;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: none;
+    }
+
+    #scoreText {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+   <a href="flappy.html" class="back-button">← Back</a>
+
+  <canvas id="flappyBird" width="400" height="512"></canvas>
+  <button id="restartBtn">Play Again</button>
+
+  <script>
+    const canvas = document.getElementById("flappyBird");
+    const ctx = canvas.getContext("2d");
+    const restartBtn = document.getElementById("restartBtn");
+
+    let bird, pipes, frame, score, gameOver;
+
+    const birdImg = new Image();
+    birdImg.src = "https://i.imgur.com/lkX6KcM.png";
+
+    function initGame() {
+      bird = {
+        x: 50,
+        y: 150,
+        width: 40,
+        height: 40,
+        gravity: 0.7,
+        lift: -10,
+        velocity: 0
+      };
+
+      pipes = [];
+      frame = 0;
+      score = 0;
+      gameOver = false;
+      restartBtn.style.display = "none";
+      loop();
+    }
+
+    function drawBird() {
+      ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+    }
+
+    function drawPipe(pipe) {
+      ctx.fillStyle = "#228B22";
+      ctx.fillRect(pipe.x, 0, 50, pipe.top);
+      ctx.fillRect(pipe.x, pipe.bottom, 50, canvas.height - pipe.bottom);
+    }
+
+    function createPipe() {
+      const top = Math.random() * (canvas.height / 2);
+      const bottom = top + 150;
+      pipes.push({ x: canvas.width, top: top, bottom: bottom });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#70c5ce";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawBird();
+
+      pipes.forEach(pipe => {
+        pipe.x -= 2;
+        drawPipe(pipe);
+
+        // Collision
+        if (
+          bird.x < pipe.x + 50 &&
+          bird.x + bird.width > pipe.x &&
+          (bird.y < pipe.top || bird.y + bird.height > pipe.bottom)
+        ) {
+          gameOver = true;
+        }
+
+        if (pipe.x + 50 < bird.x && !pipe.passed) {
+          score++;
+          pipe.passed = true;
+        }
+      });
+
+      // Remove off-screen pipes
+      if (pipes.length && pipes[0].x + 50 < 0) {
+        pipes.shift();
+      }
+
+      // Score text
+      ctx.fillStyle = "#fff";
+      ctx.font = "30px Arial";
+      ctx.fillText("Score: " + score, 10, 40);
+    }
+
+    function update() {
+      bird.velocity += bird.gravity;
+      bird.y += bird.velocity;
+
+      if (bird.y + bird.height > canvas.height || bird.y < 0) {
+        gameOver = true;
+      }
+
+      if (frame % 100 === 0) {
+        createPipe();
+      }
+    }
+
+    function loop() {
+      if (!gameOver) {
+        update();
+        draw();
+        frame++;
+        requestAnimationFrame(loop);
+      } else {
+        ctx.fillStyle = "red";
+        ctx.font = "40px Arial";
+        ctx.fillText("Game Over!", 100, canvas.height / 2);
+        ctx.font = "25px Arial";
+        ctx.fillText("Final Score: " + score, 120, canvas.height / 2 + 40);
+        restartBtn.style.display = "block";
+      }
+    }
+
+    // Controls
+    window.addEventListener("keydown", e => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        bird.velocity = bird.lift;
+      }
+    });
+
+    restartBtn.addEventListener("click", () => {
+      initGame();
+    });
+
+    birdImg.onload = () => {
+      initGame();
+    };
+  </script>
+</body>
+</html>

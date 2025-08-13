@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Memory Game</title>
+  <style>
+    body { text-align: center; font-family: sans-serif; }
+    .grid { display: grid; grid-template-columns: repeat(4, 80px); gap: 10px; justify-content: center; margin-top: 30px; }
+    .card {
+      width: 80px; height: 80px;
+      background: lightblue;
+      font-size: 2em;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+   <a href="index.html" class="back-button">← Back</a>
+  <h1>Memory Game</h1>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const emojis = ['🐶','🐱','🦊','🐻','🐼','🐸','🐵','🦁','🐱','🐭','🐥','🐰'];
+    const cards = [...emojis, ...emojis].sort(() => 0.5 - Math.random());
+    const grid = document.getElementById('grid');
+    let flipped = [];
+    let matched = [];
+
+    cards.forEach((emoji, index) => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.dataset.index = index;
+      div.onclick = () => flipCard(div, emoji);
+      grid.appendChild(div);
+    });
+
+    function flipCard(card, emoji) {
+      if (flipped.length < 2 && !matched.includes(card)) {
+        card.textContent = emoji;
+        flipped.push({ card, emoji });
+
+        if (flipped.length === 2) {
+          setTimeout(() => {
+            if (flipped[0].emoji === flipped[1].emoji) {
+              matched.push(flipped[0].card, flipped[1].card);
+            } else {
+              flipped[0].card.textContent = '';
+              flipped[1].card.textContent = '';
+            }
+            flipped = [];
+          }, 1000);
+        }
+      }
+    }
+  </script>
+</body>
+</html>

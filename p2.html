@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pong — 2 Player</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#071021;
+      --panel:#0f1724;
+      --accent:#38bdf8;
+      --text:#e6eef6;
+    }
+    *{box-sizing:border-box}
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+    body{
+      background-color: cyan;
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg,var(--bg),#031226 120%);
+      color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      padding:20px;
+    }
+    .wrap{
+      width:820px;
+      max-width:96vw;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;
+      padding:18px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      text-align:center;
+    }
+    h1{margin:0 0 8px; font-size:20px; color:var(--accent)}
+    p.lead{margin:6px 0 14px; color:#a9cfe6}
+    canvas{
+      display:block;
+      margin:0 auto;
+      background: linear-gradient(180deg,#021226 60%, #001018);
+      border-radius:8px;
+      box-shadow: 0 8px 24px rgba(2,6,23,0.7);
+    }
+    .info{
+      margin-top:12px;
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .badge{
+      background:var(--panel);
+      padding:8px 12px;
+      border-radius:10px;
+      color:#bfe9ff;
+      font-weight:600;
+      box-shadow: 0 4px 10px rgba(5,10,18,0.6);
+    }
+    .controls{font-size:13px; color:#cfeefc}
+    .btn{
+      margin-left:8px;
+      background:var(--accent);
+      color:#022233;
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .btn:active{transform:translateY(1px)}
+    .winner{
+      margin-top:12px;
+      color:#ffeb9b;
+      font-weight:800;
+      font-size:18px;
+    }
+    @media (max-width:520px){
+      h1{font-size:18px}
+      .badge{padding:6px 10px}
+    }
+  </style>
+</head>
+<body>
+    <a href="po.html" class="back-button">← Back</a>
+
+  <div class="wrap">
+    <h1>🔥 Pong — 2 Player</h1>
+    <p class="lead">Left: <strong>W / S</strong> — Right: <strong>↑ / ↓</strong> · First to <strong>10</strong> wins</p>
+
+    <canvas id="pong" width="760" height="420"></canvas>
+
+    <div class="info">
+      <div class="badge" id="score">Left 0 — 0 Right</div>
+      <div class="badge controls">Press <strong>Space</strong> to pause / resume</div>
+      <button class="btn" id="restartBtn">Restart</button>
+    </div>
+
+    <div id="winner" class="winner" aria-live="polite"></div>
+  </div>
+
+  <script>
+    // Canvas & context
+    const canvas = document.getElementById('pong');
+    const ctx = canvas.getContext('2d');
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Game state
+    const paddleWidth = 12;
+    const paddleHeight = 100;
+    const paddleSpeed = 6;
+    const ballRadius = 9;
+    const winningScore = 10;
+
+    let leftY = (H - paddleHeight) / 2;
+    let rightY = (H - paddleHeight) / 2;
+    let leftScore = 0;
+    let rightScore = 0;
+
+    let ballX = W/2;
+    let ballY = H/2;
+    let ballVX = 6 * (Math.random() > 0.5 ? 1 : -1);
+    let ballVY = (Math.random()*4 - 2);
+    let paused = false;
+    let gameOver = false;
+
+    const keys = {};
+
+    // Draw helpers
+    function drawRect(x,y,w,h,color){ ctx.fillStyle=color; ctx.fillRect(x,y,w,h); }
+    function drawCircle(x,y,r,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+    function drawText(txt,x,y,size='20px',align='center',color='#bfe9ff'){ ctx.fillStyle=color; ctx.font = `${size} Inter, Arial`; ctx.textAlign = align; ctx.fillText(txt,x,y); }
+
+    // Reset ball to center with small random angle toward last scorer or random
+    function resetBall(direction){
+      ballX = W/2;
+      ballY = H/2;
+      ballVX = (direction || (Math.random() > 0.5 ? 1 : -1)) * (5 + Math.random()*2);
+      ballVY = (Math.random()*4 - 2);
+    }
+
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+    // Update physics
+    function update(){
+      if(paused || gameOver) return;
+
+      // Move paddles by keys
+      if(keys['w']) leftY -= paddleSpeed;
+      if(keys['s']) leftY += paddleSpeed;
+      if(keys['arrowup']) rightY -= paddleSpeed;
+      if(keys['arrowdown']) rightY += paddleSpeed;
+
+      leftY = clamp(leftY, 0, H - paddleHeight);
+      rightY = clamp(rightY, 0, H - paddleHeight);
+
+      // Move ball
+      ballX += ballVX;
+      ballY += ballVY;
+
+      // Top/bottom collision
+      if(ballY - ballRadius < 0){ ballY = ballRadius; ballVY = -ballVY; }
+      if(ballY + ballRadius > H){ ballY = H - ballRadius; ballVY = -ballVY; }
+
+      // Left paddle collision
+      if(ballX - ballRadius <= paddleWidth){
+        if(ballY >= leftY && ballY <= leftY + paddleHeight){
+          // reflect, add spin depending on where it hit
+          let hitPos = (ballY - (leftY + paddleHeight/2)) / (paddleHeight/2); // -1..1
+          ballVX = Math.abs(ballVX) + 0.5; // speed up a bit
+          ballVY = hitPos * 6;
+          ballX = paddleWidth + ballRadius + 1;
+        }
+      }
+
+      // Right paddle collision
+      if(ballX + ballRadius >= W - paddleWidth){
+        if(ballY >= rightY && ballY <= rightY + paddleHeight){
+          let hitPos = (ballY - (rightY + paddleHeight/2)) / (paddleHeight/2);
+          ballVX = -Math.abs(ballVX) - 0.5;
+          ballVY = hitPos * 6;
+          ballX = W - paddleWidth - ballRadius - 1;
+        }
+      }
+
+      // Score (left misses)
+      if(ballX + ballRadius < 0){
+        rightScore++;
+        updateScore();
+        resetAfterPoint(-1);
+      }
+
+      // Score (right misses)
+      if(ballX - ballRadius > W){
+        leftScore++;
+        updateScore();
+        resetAfterPoint(1);
+      }
+    }
+
+    function resetAfterPoint(direction){
+      // Check winning
+      if(leftScore >= winningScore || rightScore >= winningScore){
+        gameOver = true;
+        paused = true;
+        const winner = leftScore > rightScore ? 'Left Player Wins!' : 'Right Player Wins!';
+        document.getElementById('winner').textContent = winner + ' 🎉';
+        return;
+      }
+      // short pause then reset ball
+      paused = true;
+      setTimeout(()=>{
+        resetBall(direction);
+        paused = false;
+      }, 700);
+    }
+
+    function updateScore(){
+      document.getElementById('score').textContent = `Left ${leftScore} — ${rightScore} Right`;
+    }
+
+    // Drawing
+    function render(){
+      // clear
+      ctx.clearRect(0,0,W,H);
+
+      // center dashed net
+      ctx.fillStyle = '#0f3245';
+      for(let i=10;i<H;i+=28){
+        drawRect(W/2 - 2, i, 4, 16, '#08334a');
+      }
+
+      // paddles
+      drawRect(0, leftY, paddleWidth, paddleHeight, '#38bdf8');
+      drawRect(W - paddleWidth, rightY, paddleWidth, paddleHeight, '#93c5fd');
+
+      // ball
+      drawCircle(ballX, ballY, ballRadius, '#f8fafc');
+
+      // scores (small)
+      drawText(leftScore, W/4, 32, '28px', 'center', '#aeeefc');
+      drawText(rightScore, 3*W/4, 32, '28px', 'center', '#aeeefc');
+
+      // paused overlay
+      if(paused && !gameOver){
+        ctx.fillStyle = 'rgba(2,10,20,0.5)';
+        ctx.fillRect(0,0,W,H);
+        drawText('Paused — Space to resume', W/2, H/2, '20px', 'center', '#fff7');
+      }
+    }
+
+    // Game loop
+    function loop(){
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // Controls
+    window.addEventListener('keydown', e=>{
+      const k = e.key.toLowerCase();
+      if(k === ' ') { paused = !paused; e.preventDefault(); return; }
+      if(k === 'r'){ restart(); return; }
+      if(k === 'w' || k === 's' || k === 'arrowup' || k === 'arrowdown'){
+        keys[k] = true;
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('keyup', e=>{
+      const k = e.key.toLowerCase();
+      if(keys[k]) keys[k] = false;
+    });
+
+    function restart(){
+      leftScore = 0; rightScore = 0;
+      leftY = (H - paddleHeight)/2; rightY = leftY;
+      updateScore();
+      document.getElementById('winner').textContent = '';
+      gameOver = false;
+      paused = false;
+      resetBall();
+    }
+
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Start values & launch
+    updateScore();
+    resetBall();
+    loop();
+  </script>
+</body>
+</html>

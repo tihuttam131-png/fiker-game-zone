@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rock Paper Scissors</title>
+  <style>
+    body { text-align: center; padding: 40px; font-family: sans-serif; }
+    button { font-size: 1.2em; margin: 10px; padding: 10px 20px; }
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+   <a href="index.html" class="back-button">← Back</a>
+
+  <h1>Rock Paper Scissors</h1>
+  <p>Choose:</p>
+  <button onclick="play('rock')">🪨 Rock</button>
+  <button onclick="play('paper')">📄 Paper</button>
+  <button onclick="play('scissors')">✂️ Scissors</button>
+  <h2 id="result"></h2>
+
+  <script>
+    function play(player) {
+      const choices = ['rock', 'paper', 'scissors'];
+      const bot = choices[Math.floor(Math.random() * 3)];
+      let result = '';
+      if (player === bot) result = 'Draw!';
+      else if ((player === 'rock' && bot === 'scissors') || 
+               (player === 'paper' && bot === 'rock') || 
+               (player === 'scissors' && bot === 'paper')) {
+        result = `You Win! Bot chose ${bot}`;
+      } else {
+        result = `You Lose! Bot chose ${bot}`;
+      }
+      document.getElementById('result').textContent = result;
+    }
+  </script>
+</body>
+</html>

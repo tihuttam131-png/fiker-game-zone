@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tank Game with AI</title>
+  <style>
+    body { margin: 0; background: #222; color: white; font-family: Arial; text-align: center; }
+    canvas { display: block; margin: auto; background: #87CEFA; }
+    button { margin-top: 10px; padding: 10px 20px; font-size: 18px; cursor: pointer; }
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+
+<body>
+    <a href="index.html" class="back-button">← Back</a>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<button onclick="restartGame()">Restart</button>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let player, ai, keys = {}, gameOver;
+
+function initGame() {
+  player = { x: 300, y: 300, width: 30, height: 30, speed: 2, bullets: [], health: 100, maxHealth: 100 };
+  ai = { x: 500, y: 300, width: 30, height: 30, speed: 1, bullets: [], cooldown: 0, health: 50, maxHealth: 50 };
+  keys = {};
+  gameOver = false;
+}
+
+addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// TLFB shooting method
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  let key = e.key.toLowerCase();
+  if (key === 'l') shoot(player, 0); // Right
+  if (key === 'f') shoot(player, Math.PI); // Left
+  if (key === 't') shoot(player, -Math.PI/2); // Up
+  if (key === 'b') shoot(player, Math.PI/2); // Down
+});
+
+function shoot(tank, angle) {
+  tank.bullets.push({ x: tank.x, y: tank.y, angle: angle, speed: 2 });
+}
+
+function updateTank(tank) {
+  if (tank === player) {
+    if (keys['w']) tank.y -= tank.speed;
+    if (keys['s']) tank.y += tank.speed;
+    if (keys['a']) tank.x -= tank.speed;
+    if (keys['d']) tank.x += tank.speed;
+  }
+}
+
+function updateAI() {
+  let dx = player.x - ai.x;
+  let dy = player.y - ai.y;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+
+  if (dist > 100) {
+    ai.x += ai.speed * dx / dist;
+    ai.y += ai.speed * dy / dist;
+  } else {
+    if (ai.cooldown <= 0) {
+      let angle = Math.atan2(dy, dx);
+      shoot(ai, angle);
+      ai.cooldown = 90;
+    }
+  }
+  if (ai.cooldown > 0) ai.cooldown--;
+}
+
+function updateBullets(tank, target) {
+  for (let i = tank.bullets.length - 1; i >= 0; i--) {
+    let b = tank.bullets[i];
+    b.x += b.speed * Math.cos(b.angle);
+    b.y += b.speed * Math.sin(b.angle);
+    if (b.x > target.x - target.width/2 && b.x < target.x + target.width/2 &&
+        b.y > target.y - target.height/2 && b.y < target.y + target.height/2) {
+      target.health -= 10;
+      tank.bullets.splice(i, 1);
+    }
+  }
+}
+
+function drawTank(tank, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(tank.x - tank.width/2, tank.y - tank.height/2, tank.width, tank.height);
+}
+
+function drawBullets(tank) {
+  ctx.fillStyle = 'black';
+  tank.bullets.forEach(b => ctx.fillRect(b.x - 3, b.y - 3, 6, 6));
+}
+
+function drawHealthBar(tank) {
+  ctx.fillStyle = 'red';
+  ctx.fillRect(tank.x - 15, tank.y + 25, 30, 5);
+  ctx.fillStyle = 'lime';
+  ctx.fillRect(tank.x - 15, tank.y + 25, 30 * (tank.health / tank.maxHealth), 5);
+}
+
+function checkWin() {
+  if (player.health <= 0) {
+    gameOver = true;
+    ctx.fillStyle = 'red';
+    ctx.font = '40px Arial';
+    ctx.fillText('Red Wins!', canvas.width/2 - 80, canvas.height/2);
+  } else if (ai.health <= 0) {
+    gameOver = true;
+    ctx.fillStyle = 'green';
+    ctx.font = '40px Arial';
+    ctx.fillText('Green Wins!', canvas.width/2 - 100, canvas.height/2);
+  }
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!gameOver) {
+    updateTank(player);
+    updateAI();
+    updateBullets(player, ai);
+    updateBullets(ai, player);
+  }
+  drawTank(player, 'green');
+  drawTank(ai, 'red');
+  drawBullets(player);
+  drawBullets(ai);
+  drawHealthBar(player);
+  drawHealthBar(ai);
+  checkWin();
+  requestAnimationFrame(gameLoop);
+}
+
+function restartGame() {
+  initGame();
+}
+
+initGame();
+gameLoop();
+</script>
+</body>
+</html>

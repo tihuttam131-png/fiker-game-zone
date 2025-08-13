@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Guess the Number</title>
+  <style>
+    body { text-align: center; padding: 50px; font-family: sans-serif; }
+    input, button { font-size: 1.2em; padding: 10px; }
+        .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #3498db;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+   <a href="index.html" class="back-button">← Back</a>
+
+  <h1>Guess the Number</h1>
+  <p>Guess a number between 1 and 100</p>
+  <input type="number" id="guess" />
+  <button onclick="check()">Guess</button>
+  <h2 id="message"></h2>
+
+  <script>
+    const secret = Math.floor(Math.random() * 100) + 1;
+    function check() {
+      const guess = parseInt(document.getElementById('guess').value);
+      const msg = document.getElementById('message');
+      if (guess === secret) msg.textContent = "🎉 You got it!";
+      else if (guess < secret) msg.textContent = "low!";
+      else msg.textContent = "high!";
+    }
+  </script>
+</body>
+</html>
