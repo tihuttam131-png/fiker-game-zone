@@ -31,15 +31,7 @@
       display: none;
     }
 
-    #scoreText {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 24px;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-        .back-button {
+    .back-button {
       position: absolute;
       top: 20px;
       left: 20px;
@@ -59,9 +51,9 @@
   </style>
 </head>
 <body>
-   <a href="index.html" class="back-button">← Back</a>
+  <a href="flappy.html" class="back-button">← Back</a>
 
-  <canvas id="flappyBird" width="400" height="512"></canvas>
+  <canvas id="flappyBird" width="400" height="12"></canvas>
   <button id="restartBtn">Play Again</button>
 
   <script>
@@ -78,7 +70,7 @@
       bird = {
         x: 50,
         y: 150,
-        width:  20,
+        width: 20,
         height: 20,
         gravity: 0.6,
         lift: -10,
@@ -174,11 +166,21 @@
       }
     }
 
-    // Controls
+    // Controls (keyboard)
     window.addEventListener("keydown", e => {
       if (e.code === "Space" || e.code === "ArrowUp") {
         bird.velocity = bird.lift;
       }
+    });
+
+    // Controls (touch and mouse)
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      bird.velocity = bird.lift;
+    }, { passive: false });
+
+    canvas.addEventListener("mousedown", e => {
+      bird.velocity = bird.lift;
     });
 
     restartBtn.addEventListener("click", () => {
@@ -191,4 +193,3 @@
   </script>
 </body>
 </html>
-
