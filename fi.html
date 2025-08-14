@@ -31,15 +31,7 @@
       display: none;
     }
 
-    #scoreText {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 24px;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-        .back-button {
+    .back-button {
       position: absolute;
       top: 20px;
       left: 20px;
@@ -59,7 +51,7 @@
   </style>
 </head>
 <body>
-   <a href="flappy.html" class="back-button">← Back</a>
+  <a href="flappy.html" class="back-button">← Back</a>
 
   <canvas id="flappyBird" width="400" height="512"></canvas>
   <button id="restartBtn">Play Again</button>
@@ -179,6 +171,16 @@
       if (e.code === "Space" || e.code === "ArrowUp") {
         bird.velocity = bird.lift;
       }
+    });
+
+    // Touch / Mouse support
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      bird.velocity = bird.lift;
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', e => {
+      bird.velocity = bird.lift;
     });
 
     restartBtn.addEventListener("click", () => {
