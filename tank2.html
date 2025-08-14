@@ -2,18 +2,20 @@
 <html>
 <head>
   <title>Two Player Tank Battle</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body {
       margin: 0;
-      background: #222;
+      background: #87CEFA;
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
+      overflow: hidden;
     }
     canvas {
-      background: black;
+      background: cyan;
       display: block;
-      margin: 20px auto;
+      margin: 10px auto;
       border: 3px solid white;
     }
     #score {
@@ -34,8 +36,8 @@
     }
     .back-button {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: 10px;
+      left: 10px;
       background-color: #3498db;
       color: white;
       padding: 8px 16px;
@@ -43,10 +45,36 @@
       text-decoration: none;
       font-weight: bold;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: background 0.3s;
     }
-    .back-button:hover {
-      background-color: #2980b9;
+    .controls {
+      position: fixed;
+      bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 10px;
+      box-sizing: border-box;
+      pointer-events: auto;
+    }
+    .control-set {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      gap: 5px;
+    }
+    .btn {
+      background: rgba(255,255,255,0.2);
+      border: 2px solid white;
+      color: white;
+      font-size: 18px;
+      padding: 10px;
+      text-align: center;
+      border-radius: 8px;
+      user-select: none;
+      touch-action: none;
+    }
+    .btn:active, .btn.active {
+      background: rgba(255,255,255,0.5);
+      transform: scale(0.98);
     }
   </style>
 </head>
@@ -57,115 +85,96 @@
   <canvas id="gameCanvas" width="800" height="500"></canvas>
   <button id="restartBtn">Restart Game</button>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const restartBtn = document.getElementById("restartBtn");
+  <!-- Mobile Controls -->
+  <div class="controls">
+    <!-- Red Player -->
+    <div class="control-set">
+      <div></div><div class="btn" data-key="w">W</div><div></div>
+      <div class="btn" data-key="a">A</div><div></div><div class="btn" data-key="d">D</div>
+      <div></div><div class="btn" data-key="s">S</div><div></div>
+      <div></div><div class="btn" data-key="t">🔼</div><div></div>
+      <div class="btn" data-key="f">◀️</div><div></div><div class="btn" data-key="g">▶️</div>
+      <div></div><div class="btn" data-key="v">🔽</div><div></div>
+    </div>
+    <!-- Blue Player -->
+    <div class="control-set">
+      <div></div><div class="btn" data-key="ArrowUp">↑</div><div></div>
+      <div class="btn" data-key="ArrowLeft">←</div><div></div><div class="btn" data-key="ArrowRight">→</div>
+      <div></div><div class="btn" data-key="ArrowDown">↓</div><div></div>
+      <div></div><div class="btn" data-key="i">🔼</div><div></div>
+      <div class="btn" data-key="j">◀️</div><div></div><div class="btn" data-key="l">▶️</div>
+      <div></div><div class="btn" data-key="m">🔽</div><div></div>
+    </div>
+  </div>
 
-    let Red, Blue, gameOver, keysPressed = {};
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const restartBtn = document.getElementById("restartBtn");
 
-    function initGame() {
-      Red = { x: 200, y: 230, color: "red", score: 0, bullets: [], up: "w", down: "s", left: "a", right: "d" };
-      Blue = { x: 560, y: 230, color: "blue", score: 0, bullets: [], up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
-      keysPressed = {};
-      gameOver = false;
-      restartBtn.style.display = "none";
-      update();
-    }
+let Red, Blue, gameOver, keysPressed = {};
 
-    document.addEventListener("keydown", e => keysPressed[e.key] = true);
-    document.addEventListener("keyup", e => keysPressed[e.key] = false);
+function normKey(k) {
+  if (!k) return k;
+  return k.length === 1 ? k.toLowerCase() : k;
+}
 
-    function drawTank(p) {
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x, p.y, 40, 40);
-    }
+function initGame() {
+  Red = { x: 200, y: 230, color: "red", score: 0, bullets: [], up: "w", down: "s", left: "a", right: "d" };
+  Blue = { x: 560, y: 230, color: "blue", score: 0, bullets: [], up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
+  keysPressed = {};
+  gameOver = false;
+  restartBtn.style.display = "none";
+  update();
+}
 
-    function shoot(p, dx, dy) {
-      p.bullets.push({ x: p.x + 20, y: p.y + 20, dx: dx, dy: dy });
-    }
+document.addEventListener("keydown", e => { const k = normKey(e.key); keysPressed[k] = true; const btn = document.querySelector(`.btn[data-key="${e.key}"]`) || document.querySelector(`.btn[data-key="${k}"]`); if (btn) btn.classList.add('active'); });
+document.addEventListener("keyup", e => { const k = normKey(e.key); keysPressed[k] = false; const btn = document.querySelector(`.btn[data-key="${e.key}"]`) || document.querySelector(`.btn[data-key="${k}"]`); if (btn) btn.classList.remove('active'); });
 
-    function movePlayer(p, controls) {
-      if (keysPressed[p.up] && p.y > 0) p.y -= 4;
-      if (keysPressed[p.down] && p.y < canvas.height - 40) p.y += 4;
-      if (keysPressed[p.left] && p.x > 0) p.x -= 4;
-      if (keysPressed[p.right] && p.x < canvas.width - 40) p.x += 4;
+document.querySelectorAll('.btn').forEach(btn => {
+  const rawKey = btn.dataset.key;
+  if (!rawKey) return;
+  const key = normKey(rawKey);
+  function setTrue(e){if(e&&e.preventDefault)e.preventDefault(); keysPressed[key]=true; btn.classList.add('active'); if(e&&e.pointerId&&btn.setPointerCapture){try{btn.setPointerCapture(e.pointerId);}catch(err){}}}
+  function setFalse(e){if(e&&e.preventDefault)e.preventDefault(); keysPressed[key]=false; btn.classList.remove('active'); if(e&&e.pointerId&&btn.releasePointerCapture){try{btn.releasePointerCapture(e.pointerId);}catch(err){}}}
+  if(window.PointerEvent){btn.addEventListener('pointerdown',setTrue); btn.addEventListener('pointerup',setFalse); btn.addEventListener('pointercancel',setFalse); btn.addEventListener('pointerleave',setFalse);} else {btn.addEventListener('touchstart',setTrue,{passive:false}); btn.addEventListener('touchend',setFalse); btn.addEventListener('touchcancel',setFalse); btn.addEventListener('mousedown',setTrue); btn.addEventListener('mouseup',setFalse); btn.addEventListener('mouseleave',setFalse);}
+});
 
-      // Red shooting
-      if (p.color === "red") {
-        if (keysPressed["g"]) shoot(p, 6, 0);    // right
-        if (keysPressed["f"]) shoot(p, -6, 0);   // left
-        if (keysPressed["t"]) shoot(p, 0, -6);   // up
-        if (keysPressed["v"]) shoot(p, 0, 6);    // down
-      }
-      // Blue shooting
-      if (p.color === "blue") {
-        if (keysPressed["l"]) shoot(p, 6, 0);    // right
-        if (keysPressed["j"]) shoot(p, -6, 0);   // left
-        if (keysPressed["i"]) shoot(p, 0, -6);   // up
-        if (keysPressed["m"]) shoot(p, 0, 6);    // down
-      }
-    }
+function drawTank(p) {
+  ctx.fillStyle = p.color;
+  // draw tank body
+  ctx.fillRect(p.x, p.y, 30, 30);
+}
 
-    function updateBullets(p, opponent) {
-      for (let b of p.bullets) {
-        b.x += b.dx;
-        b.y += b.dy;
-      }
-      p.bullets = p.bullets.filter(b => b.x > 0 && b.x < canvas.width && b.y > 0 && b.y < canvas.height);
+function shoot(p, dx, dy) {
+  p.bullets.push({ x: p.x + 20, y: p.y + 15, dx: dx, dy: dy });
+}
 
-      for (let b of p.bullets) {
-        if (b.x > opponent.x && b.x < opponent.x + 40 && b.y > opponent.y && b.y < opponent.y + 40) {
-          p.score++;
-          p.bullets = [];
-          opponent.x = opponent.color === "red" ? 200 : 560;
-          opponent.y = 230;
-        }
-      }
-    }
+function movePlayer(p) {
+  if (keysPressed[normKey(p.up)] && p.y > 0) p.y -= 4;
+  if (keysPressed[normKey(p.down)] && p.y < canvas.height - 30) p.y += 4;
+  if (keysPressed[normKey(p.left)] && p.x > 0) p.x -= 4;
+  if (keysPressed[normKey(p.right)] && p.x < canvas.width - 40) p.x += 4;
 
-    function drawBullets(p) {
-      ctx.fillStyle = "yellow";
-      for (let b of p.bullets) {
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+  if(p.color==='red') { if(keysPressed['g']) shoot(p,6,0); if(keysPressed['f']) shoot(p,-6,0); if(keysPressed['t']) shoot(p,0,-6); if(keysPressed['v']) shoot(p,0,6);} 
+  if(p.color==='blue') { if(keysPressed['l']) shoot(p,6,0); if(keysPressed['j']) shoot(p,-6,0); if(keysPressed['i']) shoot(p,0,-6); if(keysPressed['m']) shoot(p,0,6);}
+}
 
-    function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+function updateBullets(p, opponent) {
+  for(let i=p.bullets.length-1;i>=0;i--){
+    let b=p.bullets[i];
+    b.x+=b.dx;b.y+=b.dy;
+    if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height){p.bullets.splice(i,1);continue;}
+    if(b.x>opponent.x&&b.x<opponent.x+40&&b.y>opponent.y&&b.y<opponent.y+30){p.score++;p.bullets=[];opponent.x=opponent.color==='red'?200:560;opponent.y=230;break;}
+  }
+}
 
-      movePlayer(Red);
-      movePlayer(Blue);
+function drawBullets(p){ctx.fillStyle="yellow";for(let b of p.bullets){ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();}}
 
-      updateBullets(Red, Blue);
-      updateBullets(Blue, Red);
+function update(){ctx.clearRect(0,0,canvas.width,canvas.height);movePlayer(Red);movePlayer(Blue);updateBullets(Red,Blue);updateBullets(Blue,Red);drawTank(Red);drawTank(Blue);drawBullets(Red);drawBullets(Blue);document.getElementById("score").textContent=`Red: ${Red.score} | Blue: ${Blue.score}`; if(Red.score>=3||Blue.score>=3){ctx.fillStyle="white";ctx.font="40px Arial";ctx.fillText(Red.score>=3?"🏆 Red Wins!":"🏆 Blue Wins!",250,250);gameOver=true;restartBtn.style.display="inline-block";return;}if(!gameOver){requestAnimationFrame(update);}}
 
-      drawTank(Red);
-      drawTank(Blue);
-      drawBullets(Red);
-      drawBullets(Blue);
-
-      document.getElementById("score").textContent = `Red: ${Red.score} | Blue: ${Blue.score}`;
-
-      if (Red.score >= 3 || Blue.score >= 3) {
-        ctx.fillStyle = "white";
-        ctx.font = "40px Arial";
-        ctx.fillText(Red.score >= 3 ? "🏆 Red Wins!" : "🏆 Blue Wins!", 250, 250);
-        gameOver = true;
-        restartBtn.style.display = "inline-block";
-        return;
-      }
-
-      if (!gameOver) {
-        requestAnimationFrame(update);
-      }
-    }
-
-    restartBtn.addEventListener("click", initGame);
-
-    initGame();
-  </script>
+restartBtn.addEventListener("click",initGame);
+initGame();
+</script>
 </body>
 </html>
