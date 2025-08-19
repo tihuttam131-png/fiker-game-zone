@@ -2,15 +2,186 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fiker Game zone</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Fiker Game Zone</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* Loading Screen */
+    #loading-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1e90ff, #00c6ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-size: 2em;
+      z-index: 9999;
+    }
+    .loader {
+      border: 8px solid rgba(255,255,255,0.3);
+      border-top: 8px solid #fff;
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 40px 20px 30px;
+      background: linear-gradient(120deg, #00c6ff, #0072ff, #1e90ff);
+      color: white;
+      border-bottom-left-radius: 80px;
+      border-bottom-right-radius: 80px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      animation: fadeDown 1s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: radial-gradient(circle at top right, rgba(255,255,255,0.3), transparent 70%);
+      pointer-events: none;
+    }
+
+    .logo {
+      width: 120px;
+      height: auto;
+      transition: transform 0.6s ease;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35));
+    }
+    .logo:hover {
+      transform: scale(1.15) rotate(-10deg);
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin: 10px 0;
+      letter-spacing: 3px;
+      text-shadow: 3px 3px 10px rgba(0,0,0,0.35);
+    }
+
+    header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    /* Games Grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 40px;
+      padding: 60px 40px;
+      max-width: 1400px;
+      margin: auto;
+      animation: fadeUp 1.2s ease-out;
+    }
+
+    .game-card {
+      background: linear-gradient(160deg, #ffffff, #f5fbff);
+      padding: 30px 20px;
+      text-align: center;
+      border-radius: 30px;
+      text-decoration: none;
+      color: #1e90ff;
+      font-size: 1.2em;
+      font-weight: 700;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.15);
+      transition: all 0.6s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-card::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(from 0deg, rgba(0,191,255,0.25), rgba(255,255,255,0) 70%);
+      transform: rotate(0deg);
+      transition: transform 1s linear, opacity 0.5s;
+      opacity: 0;
+    }
+
+    .game-card:hover::before {
+      opacity: 1;
+      transform: rotate(360deg);
+    }
+
+    .game-card:hover {
+      transform: translateY(-12px) scale(1.05);
+      background: linear-gradient(145deg, #ffffff, #e0f4ff);
+      box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+      color: #002d80;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px;
+      background: linear-gradient(to right, #1e90ff, #00c6ff);
+      color: white;
+      border-top-left-radius: 80px;
+      border-top-right-radius: 80px;
+      box-shadow: 0 -12px 35px rgba(0,0,0,0.4);
+      font-size: 1.2em;
+    }
+
+    footer img {
+      vertical-align: middle;
+      margin-left: 14px;
+      border-radius: 14px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+    }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { transform: translateY(-80px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeUp {
+      from { transform: translateY(80px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <p>Loading Fiker Game Zone...</p>
+  </div>
+
+  <!-- Header -->
   <header>
-    <h1>🎮 welcame 🎮<br> 
-    🎮 Fiker Game zone 🎮</h1>
+    <img src="logo_only.png" alt="Fiker Logo" class="logo">
+    <h1>Fiker Game Zone</h1>
     <p>Choose your game and have fun!</p>
   </header>
+
+  <!-- Main Games Section -->
   <main>
     <div class="games-grid">
       <a href="tic-tac-toe.html" class="game-card">Tic Tac Toe</a>
@@ -22,12 +193,25 @@
       <a href="flappy.html" class="game-card">Flappy Bird</a>
       <a href="po.html" class="game-card">Pong Game</a>
       <a href="tank.html" class="game-card">Tank Game</a>
-      <a href="car.html" class="game-card">car Game</a>
-
+      <a href="car.html" class="game-card">Car Game</a>
+      <a href="asas.html" class="game-card">Dodge Game</a>
     </div>
   </main>
+
+  <!-- Footer -->
   <footer>
-    <p>© 2025 Fiker Games | All rights reserved</p>
+    <p>© 2025 Fiker Games 
+      <img src="qr.png" alt="QR Code" style="width:40px; height:40px;">
+    </p>
   </footer>
+
+  <!-- JavaScript -->
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("loading-screen").style.display = "none";
+      }, 5000);
+    });
+  </script>
 </body>
 </html>
