@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Dodge the Blocks — One File</title>
+<style>
+  :root{
+    --bg1:#FFEDD5; /* warm sand */
+    --bg2:#FDE68A; /* warm light */
+    --ink:#1f2937;
+    --accent:#ef4444; /* warm red */
+    --good:#10b981; /* green */
+    --card:#ffffffcc;
+  }
+  html,body{height:100%;}
+  body{
+    margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    color:var(--ink);
+    background: radial-gradient(1200px 800px at 30% 20%, var(--bg2), var(--bg1));
+    display:flex; align-items:center; justify-content:center;
+  }
+  .wrap{ width: min(100vw, 900px); padding: 12px; }
+  header{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:8px;
+  }
+  h1{ font-size: clamp(18px, 4vw, 28px); margin:0; letter-spacing:.5px; }
+  .hud{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .hud > *{ background:var(--card); backdrop-filter: blur(6px); border-radius:16px; padding:10px 12px; box-shadow:0 6px 20px #0000001a; }
+  .btn{ cursor:pointer; border:0; border-radius:14px; padding:10px 14px; font-weight:700; }
+  .btn.primary{ background:var(--accent); color:white; }
+  .btn.ghost{ background:#0000; border:2px solid #00000022; }
+  .select, .pill{ border:2px solid #00000014; background:var(--card); border-radius:14px; padding:8px 12px; }
+  .pill{ font-weight:700; }
+  canvas{ width:100%; height:auto; background: linear-gradient(180deg,#fffaf0 0%, #fdebd2 100%); border-radius:20px; display:block; box-shadow:0 20px 60px #00000022; }
+
+  /* Mobile controls */
+  .controls{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px; }
+  .padBtn{ user-select:none; -webkit-user-select:none; touch-action: manipulation; font-size:18px; padding:14px 10px; border-radius:16px; border:0; box-shadow:0 8px 30px #00000020; background:var(--card); }
+  .padBtn:active{ transform: translateY(1px); }
+
+  .toast{ position:fixed; inset:auto 0 20px 0; text-align:center; pointer-events:none; }
+  .toast span{ display:inline-block; background:#111; color:#fff; padding:10px 14px; border-radius:999px; opacity:.9; }
+
+  .legend{ font-size:12px; opacity:.65; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🔥 Dodge the Blocks</h1>
+      <div class="hud">
+        <div class="pill">Score: <span id="score">0</span></div>
+        <div class="pill">Best: <span id="best">0</span></div>
+        <select id="difficulty" class="select" title="Difficulty">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+          <option value="insane">Insane</option>
+        </select>
+        <button id="startBtn" class="btn primary">Start</button>
+        <button id="pauseBtn" class="btn ghost">Pause</button>
+      </div>
+    </header>
+
+    <canvas id="game" width="900" height="600"></canvas>
+
+    <div class="controls" id="controls">
+      <button class="padBtn" id="leftBtn">⟵ Left</button>
+      <button class="padBtn" id="jumpBtn">⤴ Jump</button>
+      <button class="padBtn" id="rightBtn">Right ⟶</button>
+      <div class="legend" style="grid-column: span 3; text-align:center;">Keyboard: A / D or ◀ / ▶ to move • W / ⬆ to jump • P to pause</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden><span></span></div>
+
+<script>
+(() => {
+  const cvs = document.getElementById('game');
+  const ctx = cvs.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const jumpBtn = document.getElementById('jumpBtn');
+  const diffSel = document.getElementById('difficulty');
+  const toast = document.getElementById('toast');
+
+  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  function fitCanvas(){
+    const w = Math.min(900, window.innerWidth - 24);
+    const h = Math.round(w * 2/3);
+    cvs.style.width = w + 'px';
+    cvs.style.height = h + 'px';
+    cvs.width = Math.floor(w * DPR);
+    cvs.height = Math.floor(h * DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0); // draw in CSS pixels
+  }
+  fitCanvas();
+  addEventListener('resize', fitCanvas);
+
+  const state = {
+    running:false, paused:false, t:0, last:0,
+    score:0, best: Number(localStorage.getItem('dodge.best')||0),
+    player: {x: 100, y: 0, w: 40, h: 40, vx:0, vy:0, onGround:false},
+    blocks: [], coins: [],
+    gravity: 1800,
+    ground: 40,
+    spawnTimer: 0, coinTimer: 0,
+    speedScale: 1,
+  };
+  bestEl.textContent = state.best;
+
+  const DIFF = {
+    easy:   {spawn: .9, blockSpeed: 160, coin: 2.2, jump: 620, move: 380},
+    normal: {spawn: .65,blockSpeed: 200, coin: 1.8, jump: 650, move: 420},
+    hard:   {spawn: .48,blockSpeed: 260, coin: 1.5, jump: 670, move: 460},
+    insane: {spawn: .33,blockSpeed: 320, coin: 1.1, jump: 690, move: 520},
+  };
+  function cur(){ return DIFF[diffSel.value]; }
+
+  function reset(){
+    state.blocks.length = 0; state.coins.length = 0;
+    state.player.x = cvs.width/DPR * .5 - 20; state.player.y = 0; state.player.vx = 0; state.player.vy = 0; state.player.onGround=false;
+    state.score = 0; scoreEl.textContent = 0; state.t = 0; state.spawnTimer=0; state.coinTimer = 0;
+  }
+
+  function start(){ reset(); state.running = true; state.paused=false; startBtn.textContent = 'Restart'; showToast('Good luck!'); }
+  function pauseToggle(){ if(!state.running) return; state.paused = !state.paused; pauseBtn.textContent = state.paused? 'Resume':'Pause'; }
+
+  startBtn.addEventListener('click', start);
+  pauseBtn.addEventListener('click', pauseToggle);
+
+  // Controls
+  const keys = {left:false,right:false,up:false};
+  addEventListener('keydown', e=>{
+    if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=true;
+    if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=true;
+    if(e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Space') { keys.up=true; e.preventDefault(); }
+    if(e.code==='KeyP') pauseToggle();
+  });
+  addEventListener('keyup', e=>{
+    if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=false;
+    if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=false;
+    if(e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Space') keys.up=false;
+  });
+  function hold(btn, prop){
+    let t=false; const down=()=>t=true, up=()=>t=false;
+    btn.addEventListener('touchstart', e=>{ e.preventDefault(); t=true; }, {passive:false});
+    btn.addEventListener('touchend', ()=>t=false);
+    btn.addEventListener('mousedown', ()=>t=true);
+    addEventListener('mouseup', ()=>t=false);
+    return () => t;
+  }
+  const leftHeld = hold(leftBtn,'left');
+  const rightHeld = hold(rightBtn,'right');
+  jumpBtn.addEventListener('click', ()=> jump());
+  jumpBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); jump(); }, {passive:false});
+
+  function showToast(msg){
+    toast.hidden=false; toast.querySelector('span').textContent = msg; clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.hidden=true, 1400);
+  }
+
+  // Mechanics
+  function jump(){
+    if(state.player.onGround){ state.player.vy = -cur().jump; state.player.onGround=false; ping(660, .05); }
+  }
+
+  function spawnBlock(){
+    const w = rand(40, 110); const x = rand(0, cvs.width/DPR - w);
+    const speed = cur().blockSpeed * rand(0.9, 1.2) * state.speedScale;
+    state.blocks.push({x, y:-30, w, h: rand(20, 40), vy: speed});
+  }
+  function spawnCoin(){
+    const size = 18; const x = rand(10, cvs.width/DPR - size - 10);
+    const speed = (cur().blockSpeed*0.9) * rand(0.9, 1.2) * state.speedScale;
+    state.coins.push({x, y:-size, w:size, h:size, vy: speed});
+  }
+
+  function update(dt){
+    state.t += dt;
+    if(!state.running || state.paused) return;
+
+    // difficulty pacing
+    state.speedScale = 1 + Math.min(2, state.t/45);
+
+    // Spawn logic
+    state.spawnTimer -= dt; state.coinTimer -= dt;
+    if(state.spawnTimer <= 0){ spawnBlock(); state.spawnTimer = cur().spawn / state.speedScale; }
+    if(state.coinTimer <= 0){ spawnCoin(); state.coinTimer = cur().coin / state.speedScale; }
+
+    // Player movement
+    const p = state.player;
+    const moveSpeed = cur().move;
+    const left = keys.left || leftHeld();
+    const right = keys.right || rightHeld();
+    p.vx = (right?1:0) * moveSpeed - (left?1:0)*moveSpeed;
+    p.vy += state.gravity*dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+
+    // floor
+    const floorY = (cvs.height/DPR) - state.ground - p.h;
+    if(p.y >= floorY){ p.y = floorY; p.vy = 0; if(!p.onGround){ p.onGround=true; }}
+
+    // walls
+    p.x = clamp(p.x, 0, cvs.width/DPR - p.w);
+
+    // Blocks update
+    for(let i=state.blocks.length-1;i>=0;i--){
+      const b = state.blocks[i]; b.y += b.vy*dt;
+      if(aabb(p,b)) { gameOver(); return; }
+      if(b.y > cvs.height/DPR + 60) state.blocks.splice(i,1);
+    }
+
+    // Coins update
+    for(let i=state.coins.length-1;i>=0;i--){
+      const c = state.coins[i]; c.y += c.vy*dt;
+      if(aabb(p,c)) { state.score += 10; scoreEl.textContent = state.score; ping(880,.06); state.coins.splice(i,1); }
+      else if(c.y > cvs.height/DPR + 40) state.coins.splice(i,1);
+    }
+  }
+
+  function draw(){
+    // clear
+    ctx.clearRect(0,0,cvs.width/DPR, cvs.height/DPR);
+
+    // ground
+    const gY = (cvs.height/DPR) - state.ground;
+    // soft ground shadow
+    const grd = ctx.createLinearGradient(0,gY-20,0,gY+20);
+    grd.addColorStop(0,'#0000'); grd.addColorStop(1,'#00000018');
+    ctx.fillStyle = grd; ctx.fillRect(0,gY-20,cvs.width/DPR,40);
+
+    // player
+    drawRoundedRect(state.player.x, state.player.y, state.player.w, state.player.h, 8, '#111');
+    drawRoundedRect(state.player.x+6, state.player.y+6, state.player.w-12, state.player.h-12, 8, '#ef4444');
+
+    // blocks
+    state.blocks.forEach((b,i)=>{
+      drawRoundedRect(b.x,b.y,b.w,b.h,6,'#1f2937');
+    });
+
+    // coins
+    state.coins.forEach(c=>{
+      ctx.beginPath(); ctx.arc(c.x+c.w/2, c.y+c.h/2, c.w/2, 0, Math.PI*2);
+      ctx.fillStyle = '#f59e0b'; ctx.fill();
+      ctx.fillStyle = '#fff8'; ctx.fillRect(c.x+5, c.y+4, 4, c.h-8);
+    });
+
+    // UI line
+    ctx.strokeStyle = '#0000001a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, gY); ctx.lineTo(cvs.width/DPR, gY); ctx.stroke();
+  }
+
+  function gameOver(){
+    state.running = false; ping(140, .2);
+    state.best = Math.max(state.best, state.score);
+    localStorage.setItem('dodge.best', state.best);
+    bestEl.textContent = state.best;
+    showToast('Game Over — Score '+state.score);
+  }
+
+  function loop(t){
+    const now = t*0.001; const dt = Math.min(0.033, now - (state.last||now)); state.last = now;
+    if(!state.paused) update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // utils
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function aabb(a,b){ return (a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y); }
+  function drawRoundedRect(x,y,w,h,r,fill){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y, x+w,y+h, r);
+    ctx.arcTo(x+w,y+h, x,y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+  }
+
+  // tiny beep generator using WebAudio
+  let ac; function ping(freq, dur){
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.type='sine'; o.frequency.value=freq; g.gain.value=0.06; o.connect(g); g.connect(ac.destination);
+      o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); o.stop(ac.currentTime+dur);
+    }catch(e){/* ignore */}
+  }
+})();
+</script>
+</body>
+</html>
